@@ -1,0 +1,4 @@
+# Directories #
+_build/**
+_static/**
+_templates/**
