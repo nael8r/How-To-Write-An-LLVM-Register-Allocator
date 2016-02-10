@@ -14,19 +14,19 @@ It's assumed that you already know what is a pass in the LLVM infrastructure, in
 Register Allocation
 ===================
 
-Register Allocation is executed during the Code Generation phase and consists in mapping a program with a unbounded number of virtual registers (like in the LLVM IR) to a program that contains a bounded (possibly small) number of physical registers of some particular architecture. Each target architecture has a different number of physical registers. If the number of physical registers is not enough to accommodate all the virtual registers, some of them will have to be mapped into memory. These virtuals are called spilled virtuals. For more information about how the LLVM infrastructure represents registers, take a look at the `Register Allocation Section <http://www.llvm.org/docs/CodeGenerator.html#register-allocator>`_ in the LLVM docs.
+Register Allocation is executed during the Code Generation phase and consists in mapping a program with a unbounded number of virtual registers (like in the LLVM IR) to a program that contains a bounded (possibly small) number of physical registers of some particular architecture. Each target architecture has a different number of physical registers. If the number of physical registers is not enough to accommodate all the virtual registers, some of them will have to be mapped into memory. These virtual registers are called spilled virtuals. For more information about how the LLVM infrastructure represents registers, take a look at the `Register Allocation Section <http://www.llvm.org/docs/CodeGenerator.html#register-allocator>`_ in the LLVM docs.
 
-The LLVM infrastructure provides a series of classes and tools to make the process of writing a register allocator more easier.
+The LLVM infrastructure provides a series of classes and tools to make the process of writing a register allocator easier.
 
-Writing An Register Allocator on LLVM
+Writing An Register Allocator in LLVM
 =====================================
 
-In this section, will be shown the basic classes that are related to register allocation and how to write a register allocation extending the ``RegAllocBase`` interface.
+In this section, will be shown the basic classes that are related to register allocation and how to write a register allocator extending the ``RegAllocBase`` interface.
 
-Virtual Register and the SSA-form
+Virtual Register and SSA
 ---------------------------------
 
-The virtual registers in the LLVM are represented by the ``LiveInterval`` class and each virtual register represents a unique variable with one single definition, this fact is due to the strict SSA-form, used to represent the LLVM IR. The SSA-form is destructed before the register allocation pass, but the Liveness Analysis is maintained in the SSA-form.
+Virtual registers in the LLVM are represented by the ``LiveInterval`` class and each virtual register represents a unique variable with one single definition, this fact is due to the strict SSA-form, used to represent the LLVM IR. The SSA-form is destructed before the register allocation pass, but the Liveness Analysis is maintained in the SSA-form.
 
 If you want to get all the virtual registers, you can use the following code:
 
@@ -44,14 +44,14 @@ If you want to get all the virtual registers, you can use the following code:
 
 Where ``MRI`` corresponds to an instance of the ``MachineRegisterInfo`` class (contains information about virtual registers) and ``LIS`` corresponds to the Liveness Analysis pass, represented by the class ``LiveIntervals``.
 
-This procedure is already performed previously in the ``RegAllocBase`` interface, by the method ``seedLiveRegs``.
+This procedure is performed in the ``RegAllocBase`` interface, by the method ``seedLiveRegs``.
 
 Irregularities in Architectures
 -------------------------------
 
 Some architectures are not regular (such as x86) and their registers can be represented in different ways. The registers ``AH``, ``AX`` and ``EAX`` share the same physical location, but they have different sizes. The LLVM deals with this by representing physical registers as register units, where each unit is an alias.
 
-You can traverse through this units, given a physical register ``PhysReg`` and a ninstance of the class ``TargetRegisterInfo`` named ``TRI``, using the following code:
+You can traverse through this units, given a physical register ``PhysReg`` and an instance of the class ``TargetRegisterInfo`` named ``TRI``, using the following code:
 
 .. code-block:: c++
 
@@ -59,23 +59,23 @@ You can traverse through this units, given a physical register ``PhysReg`` and a
    	// do something
    }
 
-Other irregularity is pre-coloring, which consist in some physical registers of the architecture that are reserved for some operations like parameter passing, return values and others. One way to handle such registers is using the ``LiveRegMatrix`` class, which provides mechanisms to check if some physical register is reserved when you check for a interference, if it is reserved, the kind of interference returned will be ``IK_RegUnit``. Other way is to call the ``freezeReservedRegs`` method of the ``MachineRegisterInfo`` class before the register allocation, this method will make the reserved physical register unaccessible during register allocation.
+Another irregularity is pre-coloring, which consists of some physical registers of the architecture that are reserved for some operations like parameter passing, return values and others. One way to handle such registers by using the ``LiveRegMatrix`` class, which provides mechanisms to check if some physical register is reserved when you check for an interference, if it is reserved, the kind of interference returned will be ``IK_RegUnit``. Another way is to call the ``freezeReservedRegs`` method of the ``MachineRegisterInfo`` class before the register allocation, this method will make the reserved physical register unaccessible during register allocation.
 
 Interference Graph
 ------------------
 
-Some register allocators uses the graph coloring approach, to do this they need a structure called Interference Graph, usually the nodes of such graphs are variables and each edge represents a interference between two or more variables, i.e., two or more variables which live the same time. To build a interference graph you'll need to do the following steps:
+Some register allocators uses the graph coloring approach, to do this they need a structure called Interference Graph, usually the nodes of such graphs are variables and each edge represents an interference between two or more variables, i.e., two or more variables which live the same time. To build an interference graph you'll need to do the following steps:
 
 * Add a node for each register unit and pre-color it.
 * Add a node for each virtual register.
-* Check for interferences between an virtual register and the others virtual registers, also between an virtual register and register units, if a interference exists, add an edge. This interference can be checked through the ``overlaps`` method of the ``LiveInterval`` class.
+* Check for interferences between a virtual register and "the other virtual registers, also between a virtual register and register units, if an interference exists, add an edge. This interference can be checked through the ``overlaps`` method of the ``LiveInterval`` class.
 
 This approach is to use the classical representation of the interference graph, LLVM provides a class named ``LiveRegMatrix`` that already performs a similar function. The difference is that this structure will check for interferences on-the-fly between a virtual register and the virtual registers assigned to some physical register. The ``LiveRegMatrix`` has four types of interferences (see the `LiveRegMatrix source <http://www.llvm.org/doxygen/LiveRegMatrix_8cpp_source.html>`_ for reference).
 
-To check the interference between a virtual register ``VirtReg`` and some physical register ``PhysReg``, you can use an instance of the ``LiveRegMatrix`` named ``Matrix`` and also the ``AllocationOrder`` class, which provides a order of available physical registers that best fit for some virtual register. The arguments passed to the ``AllocationOrder`` constructor are an integer identifier of the virtual register, an instance of the ``VirtRegMap`` class and an instance of the ``RegisterClassInfo``.
+To check the interference between a virtual register ``VirtReg`` and some physical register ``PhysReg``, you can use an instance of the ``LiveRegMatrix`` named ``Matrix`` and also the ``AllocationOrder`` class, which provides an order of available physical registers that best fit for some virtual register. The arguments passed to the ``AllocationOrder`` constructor are an integer identifier of the virtual register, an instance of the ``VirtRegMap`` class and an instance of the ``RegisterClassInfo``.
 
 .. code-block:: c++
-   
+
    AllocationOrder Order(VirtReg->reg, *VRM, RegClassInfo);
    while (unsigned PhysReg = Order.next()) {
     // Check for interference in PhysReg
@@ -115,20 +115,20 @@ The ``LiveRegMatrix`` can also be used to collect all interferences of some virt
     }
    }
 
-The The ``LiveRegMatrix`` also provides methods for assign virtual registers to physical registers and unassign virtual registers from physical registers.
+The The ``LiveRegMatrix`` also provides methods for assigning virtual registers to physical registers and unassign virtual registers from physical registers.
 
 Spill
 -----
 
-To apply spill to an virtual register, the class ``InlineSpiller`` can be used, this class implements the ``Spiller`` interface. The method used to apply spill to a virtual register is named ``spill`` and takes as parameter a instance of the class ``LiveRangeEdit``. An instance of the ``LiveRangeEdit`` class has to be created each time the allocator decide to apply spill or split some virtual register, in order to create a new virtual register and preserves the original. The ``LiveRangeEdit`` constructor takes as parameters: the virtual register that will be modified, an array to insert splitted virtual registers, an pointer to the current function, an pointer to the Liveness Analysis and an instance of the ``VirtRegMap`` class.
+To apply spill to a virtual register, the class ``InlineSpiller`` can be used, this class implements the ``Spiller`` interface. The method used to apply spill to a virtual register is named ``spill`` and takes as parameter a instance of the class ``LiveRangeEdit``. An instance of the ``LiveRangeEdit`` class has to be created each time the allocator decide to apply spill or split some virtual register, in order to create a new virtual register and preserves the original. The ``LiveRangeEdit`` constructor takes as parameters: the virtual register that will be modified, an array to insert split virtual registers, a pointer to the current function, a pointer to the Liveness Analysis and an instance of the ``VirtRegMap`` class.
 
 .. code-block:: c++
-   
+
    // Spill some virtual register
    LiveRangeEdit LRE(&VirtReg, SplitVRegs, *MF, *LIS, VRM);
    spiller().spill(LRE);
 
-After spill has been inserted, the pass of Liveness Analysis is automatically called to update the ``LiveIntervals`` information.
+After a spill has been inserted, the pass of Liveness Analysis is automatically called to update the ``LiveIntervals`` information.
 
 The spill cost of each virtual register is already computed before the register allocation pass and it's stored in the ``weight`` attribute of the ``LiveInterval`` class, for more information see the `CalcSpillWights <http://llvm.org/doxygen/CalcSpillWeights_8h.html>`_ file.
 
@@ -159,7 +159,7 @@ Declaration
 ^^^^^^^^^^^
 
 .. code-block:: c++
-   
+
    /// Inline Spiller
    Spiller &spiller() override;
 
@@ -172,7 +172,7 @@ Declaration
 ^^^^^^^^^^^
 
 .. code-block:: c++
-   
+
    /// Put a new VirtReg for later assignment
    void enqueue(LiveInterval *LI) override;
 
@@ -185,7 +185,7 @@ Declaration
 ^^^^^^^^^^^
 
 .. code-block:: c++
-   
+
    /// Select a VirtReg for assignment
    LiveInterval *dequeue() override;
 
@@ -198,7 +198,7 @@ Declaration
 ^^^^^^^^^^^
 
 .. code-block:: c++
-   
+
    // Each call must guarantee forward progress by returning an available PhysReg or new set of split live virtual registers.
    // It is up to the splitter to converge quickly toward fully spilled live ranges.
    unsigned selectOrSplit(LiveInterval &VirtReg,
@@ -213,7 +213,7 @@ Declaration
 ^^^^^^^^^^^
 
 .. code-block:: c++
-   
+
    /// Method called when the allocator is about to remove a LiveInterval.
    void aboutToRemoveInterval(LiveInterval &LI) override;
 
@@ -252,14 +252,14 @@ This method is responsible for perform the allocation, while the ``dequeue`` ret
   // physical register assignments.
   void allocatePhysRegs();
 
-Once you have created the logic of your register allocator, you'll need to register him in the LLVM ``PassManager``, this can be done using an `existing pass registry for a new register allocator <http://www.llvm.org/docs/WritingAnLLVMPass.html#using-existing-registries>`_.
+Once you have created the logic of your register allocator, you'll need to register it in the LLVM ``PassManager``, this can be done using an `existing pass registry for a new register allocator <http://www.llvm.org/docs/WritingAnLLVMPass.html#using-existing-registries>`_.
 
 It's worth to remember that you have to inherit from an ``MachineXXXXPass`` also, where ``XXXX`` depends on the scope that you'll work with your register allocator, like ``Module``, ``Function`` or ``BasicBlock``.
 
-Once you have registered your register allocation pass, you can use him in tools like ``llc``:
+Once you have registered your register allocation pass, you can use it in tools like ``llc``:
 
 .. code-block:: console
-   
+
    $ llc -help
      ...
      -regalloc                    - Register allocator to use (default=linearscan)
@@ -295,7 +295,7 @@ Timing
 The LLVM infrastructure automatically measures the runtime of passes executed during the compilation when you use the ``-time-passes`` option in tools like ``llc``, if you want the runtime of an specific region of your register allocator code you can use:
 
 .. code-block:: c++
-   
+
    NamedRegionTimer T("Code Region", TimerGroupName, TimePassesIsEnabled);
 
 Where the ``TimeGroupName`` instance is accessible only if you use the ``RegAllocBase`` interface.
