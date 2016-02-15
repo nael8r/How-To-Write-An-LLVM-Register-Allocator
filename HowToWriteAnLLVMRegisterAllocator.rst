@@ -130,7 +130,7 @@ To apply spill to a virtual register, the class ``InlineSpiller`` can be used, t
 
 After a spill has been inserted, the pass of Liveness Analysis is automatically called to update the ``LiveIntervals`` information.
 
-The spill cost of each virtual register is already computed before the register allocation pass and it's stored in the ``weight`` attribute of the ``LiveInterval`` class, for more information see the `CalcSpillWights <http://llvm.org/doxygen/CalcSpillWeights_8h.html>`_ file.
+The spill cost of each virtual register is already computed before the register allocation pass and it's stored in the ``weight`` attribute of the ``LiveInterval`` class, for more information see the `CalcSpillWeights <http://llvm.org/doxygen/CalcSpillWeights_8h.html>`_ file.
 
 Using the ``RegAllocBase`` Interface
 ------------------------------------
