@@ -1,5 +1,5 @@
 # How-To-Write-An-LLVM-Register-Allocator
-This repository contains a tutorial for a quick start in how to wirite a register allocator using LLVM
+This repository contains a tutorial for a quick start in how to write a register allocator using LLVM
 
 This tutorial shows how to write a register allocator using the LLVM infrastructure, extending the `RegAllocBase` interface.
 
